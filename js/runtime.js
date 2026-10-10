@@ -35,7 +35,12 @@ const BOXED = new Set([
   'Ljava/lang/Double;', 'Ljava/lang/Character;', 'Ljava/lang/Byte;', 'Ljava/lang/Short;',
 ]);
 
-export function isNullRef(x) { return x === null || x === undefined || x === 0 || x === false; }
+/* `x === null || x === undefined` compiled to the same fast branch. */
+export function isNullRef(x) { return x == null || x === 0 || x === false; }
+
+/** Reference-typed field descriptors cache their boxed-ness once per key:
+ *  `refNull` used to hit a Set on every single get/put/invoke boundary. */
+const _boxCache = new Map();
 
 export function defaultValue(t) {
   if (!t) return null;
@@ -114,8 +119,8 @@ export class Runtime {
     this.exc = null;                       // exception awaiting `move-exception`
     this.log = env.log || (() => {});
     this.stats = { calls: 0, classes: 0, methods: 0, compiled: 0, unresolvedMethods: new Map(), unresolvedClasses: new Set() };
-    this._mref = new Map();
-    this._fref = new Map();
+    this._mref = Object.create(null);   // call-site method-ref inline cache
+    this._assign = new Map();           // isAssignable memo (from|to -> bool)
     this._vresolve = new Map();
     this.pendingTasks = [];
     this.halted = false;
@@ -249,6 +254,8 @@ export class Runtime {
     c._ifacesResolved = false;
     c.fieldOrder = null;
     this._vresolve.clear();
+    this._assign.clear();
+    this._boxCache.clear();
   }
   ifaces(c) {
     if (c.interfaceClasses && c.interfaceClasses.length === (c.interfaces || []).length && c._ifacesResolved) return c.interfaceClasses;
@@ -269,7 +276,14 @@ export class Runtime {
 
   isAssignable(from, toDesc) {
     if (from === toDesc) return true;
-    const to = this.klass(toDesc);
+    const ck = from + '|' + toDesc;
+    const hit = this._assign.get(ck);
+    if (hit !== undefined) return hit;
+    const res = this._isAssignableSlow(from, toDesc);
+    this._assign.set(ck, res);
+    return res;
+  }
+  _isAssignableSlow(from, toDesc) {
     let c = this.classes.get(from) || this.klass(from);
     let guard = 0;
     while (c && guard++ < 200) {
@@ -282,14 +296,40 @@ export class Runtime {
 
   /* ---------------- object model ---------------- */
   classOf(obj) {
-    if (obj === null || obj === undefined) return null;
+    if (typeof obj === 'object') {
+      if (obj === null) return null;
+      if (Array.isArray(obj)) return obj[ARR_CLASS] || this.klass('[Ljava/lang/Object;');
+      return obj.$c || null;
+    }
     if (typeof obj === 'string') return this.klass('Ljava/lang/String;');
+    if (obj === undefined) return null;
     if (typeof obj === 'number' || typeof obj === 'boolean') return this.klass('Ljava/lang/Integer;');
-    if (Array.isArray(obj)) return obj[ARR_CLASS] || this.klass('[Ljava/lang/Object;');
-    if (obj.$c) return obj.$c;
     return null;
   }
-  descOf(obj) { if (isNullRef(obj)) return null; const c = this.classOf(obj); return c ? c.desc : null; }
+  /** Descriptor of a register value. Dalvik keeps `null` as the integer 0, so
+   *  0/false are null references here too — same contract as isNullRef(). */
+  descOf(obj) {
+    if (typeof obj === 'object') return obj === null ? null : (Array.isArray(obj) ? (obj[ARR_CLASS] ? obj[ARR_CLASS].desc : '[Ljava/lang/Object;') : (obj.$c ? obj.$c.desc : null));
+    if (typeof obj === 'string') return 'Ljava/lang/String;';
+    if (obj === 0 || obj === false) return null;
+    if (typeof obj === 'number' || typeof obj === 'boolean') return 'Ljava/lang/Integer;';
+    return null;
+  }
+
+  /** Field/static storage for a boxed-primitive type: the raw value stands for
+   *  itself (a 0 Integer is not null), everything else follows the Dalvik
+   *  null-as-zero convention. */
+  _unbox(v, d) {
+    switch (d.length) {
+      case 19: if (d === 'Ljava/lang/Float;' || d === 'Ljava/lang/Byte;') return v; break;
+      case 20: if (d === 'Ljava/lang/Short;' || d === 'Ljava/lang/Double;') return v; break;
+      case 21: if (d === 'Ljava/lang/Long;' || d === 'Ljava/lang/Char;') return v; break;
+      case 22: if (d === 'Ljava/lang/Boolean;') return v; break;
+      case 23: if (d === 'Ljava/lang/Integer;') return v; break;
+      default: break;
+    }
+    return (v === 0 || v === false) ? null : v;
+  }
 
   newInstanceObj(cls) {
     const o = { $c: cls };
@@ -348,24 +388,29 @@ export class Runtime {
 
   /* fields */
   _fr(key) {
-    let r = this._fref.get(key);
-    if (r) return r;
+    let r = _boxCache.get(key);
+    if (r !== undefined) return r;
     const a = key.indexOf('->');
     const owner = key.slice(0, a);
     const rest = key.slice(a + 2);
     const ci = rest.indexOf(':');
-    r = { owner, name: rest.slice(0, ci), type: rest.slice(ci + 1), key };
-    this._fref.set(key, r);
+    const type = rest.slice(ci + 1);
+    const c0 = type.charCodeAt(0);
+    // Reference fields normalise 0/false to null unless the type is a boxed
+    // primitive — resolve that once per key instead of on every access.
+    const ref = c0 === 76 || c0 === 91;
+    r = { owner, name: rest.slice(0, ci), type, key, rn: !ref ? null : (BOXED.has(type) ? type : 'L') };
+    _boxCache.set(key, r);
     return r;
   }
   _staticHolder(key) {
     const r = this._fr(key);
-    const c = this.klass(r.owner);
-    this.initClass(c);
+    const c = r.sc || (r.sc = this.klass(r.owner));
+    if (!c.initialized) this.initClass(c);
     return c;
   }
-  gf(o, key) { const f = this._fr(key); if (isNullRef(o)) throw this.npe('field get ' + key); return this.refNull(key in o ? o[key] : defaultValue(f.type), f.type); }
-  pf(o, key, v) { const f = this._fr(key); if (isNullRef(o)) throw this.npe('field put ' + key); o[key] = this.refNull(v, f.type); }
+  gf(o, key) { const f = this._fr(key); if (o == null || o === 0 || o === false) throw this.npe('field get ' + key); const v = o[key]; return v === undefined ? defaultValue(f.type) : (f.rn === 'L' ? ((v === 0 || v === false) ? null : v) : f.rn ? this._unbox(v, f.rn) : v); }
+  pf(o, key, v) { const f = this._fr(key); if (o == null || o === 0 || o === false) throw this.npe('field put ' + key); o[key] = f.rn === 'L' ? ((v === 0 || v === false) ? null : v) : v; }
   gfb(o, k) { return this.gf(o, k) ? 1 : 0; }
   pfb(o, k, v) { this.pf(o, k, v ? 1 : 0); }
   gfy(o, k) { return this.gf(o, k) | 0; }
@@ -375,8 +420,8 @@ export class Runtime {
   gfs(o, k) { return this.gf(o, k) | 0; }
   pfs(o, k, v) { this.pf(o, k, (v << 16) >> 16); }
 
-  gs(key) { const f = this._fr(key); const c = this._staticHolder(key); return this.refNull(key in c.statics ? c.statics[key] : defaultValue(f.type), f.type); }
-  ps(key, v) { const f = this._fr(key); this._staticHolder(key).statics[key] = this.refNull(v, f.type); }
+  gs(key) { const f = this._fr(key); const s = this._staticHolder(key).statics; let v = s[key]; if (v === undefined) v = defaultValue(f.type); return f.rn === 'L' ? ((v === 0 || v === false) ? null : v) : f.rn ? this._unbox(v, f.rn) : v; }
+  ps(key, v) { const f = this._fr(key); this._staticHolder(key).statics[key] = f.rn === 'L' ? ((v === 0 || v === false) ? null : v) : v; }
   gsb(k) { return this.gs(k) ? 1 : 0; }
   psb(k, v) { this.ps(k, v ? 1 : 0); }
   gsy(k) { return this.gs(k) | 0; }
@@ -524,23 +569,27 @@ export class Runtime {
    * (1 when A includes the method key).
    */
   _invokeN(kind, key, A, n, off) {
-    this.stats.calls++;
     const ref = this._mr(key);
-    const sig = ref.sig;
     if (kind === 'static') {
       let m = ref.sm;
-      if (m === undefined) {
-        const c = this.klass(ref.owner);
-        this.initClass(c);
-        m = c.methods.get(sig);
-        if (!m) { const su = this.sup(c); m = su ? this.findMethod(su, sig) : null; }
-        ref.sm = m || null;
+      if (m !== undefined) {                      // cached: skip the parse entirely
+        if (!m) return this._missingN(kind, key, A, n, off);
+        this.stats.calls++;
+        return this.callMethodN(m, A, n, off);
       }
+      const sig = ref.sig;
+      const c = this.klass(ref.owner);
+      this.initClass(c);
+      m = c.methods.get(sig);
+      if (!m) { const su = this.sup(c); m = su ? this.findMethod(su, sig) : null; }
+      ref.sm = m || null;
       if (!m) return this._missingN(kind, key, A, n, off);
+      this.stats.calls++;
       return this.callMethodN(m, A, n, off);
     }
     const recv = A[off];
     if (kind === 'super' || kind === 'direct') {
+      const sig = ref.sig;
       let m = kind === 'super' ? ref.um : ref.dm;
       if (m === undefined) {
         const c = this.klass(ref.owner);
@@ -550,8 +599,16 @@ export class Runtime {
         if (kind === 'super') ref.um = m || null; else ref.dm = m || null;
       }
       if (!m) return this._missingN(kind, key, A, n, off);
+      this.stats.calls++;
       return this.callMethodN(m, A, n, off);
     }
+    // virtual / interface — monomorphic inline cache first: one descriptor
+    // compare and no key re-parsing for the overwhelmingly common case.
+    if (ref.lk === recv.$c) {
+      const m = ref.lm;
+      if (m) { this.stats.calls++; return this.callMethodN(m, A, n, off); }
+    }
+    const sig = ref.sig;
     // Arrays carry a handful of Object methods that ART implements natively.
     if (Array.isArray(recv)) {
       if (sig === 'clone()Ljava/lang/Object;') { const c = recv.slice(); c[ARR_CLASS] = recv[ARR_CLASS]; return c; }
@@ -561,7 +618,6 @@ export class Runtime {
       if (sig === 'getClass()Ljava/lang/Class;') return this.classObject((recv[ARR_CLASS] || this.klass('[Ljava/lang/Object;')).desc);
       if (sig === 'notify()V' || sig === 'notifyAll()V' || sig === 'wait()V' || sig === 'wait(J)V' || sig === 'wait(JI)V') return undefined;
     }
-    // virtual / interface
     if (isNullRef(recv)) {
       const unbox = UNBOX_DEFAULT[sig];
       if (unbox !== undefined) {
@@ -576,20 +632,19 @@ export class Runtime {
     else cls = recv.$c || this.klass(ref.owner);
     if (cls && cls.native && !cls.methods.has(sig)) {
       const nm = this.findNativeBySignature(cls, sig);
-      if (nm) return this.callMethodN(nm, A, n, off);
+      if (nm) { this.stats.calls++; return this.callMethodN(nm, A, n, off); }
     }
-    // 1-entry inline cache per call-site key: hot sites repeat receiver class.
-    let m = (ref.lk === cls.desc) ? ref.lm : null;
-    if (m === null && ref.lk !== cls.desc) {
-      m = this.resolveVirtual(cls, sig);
-      if (!m) m = this.findInterfaceMethod(cls, sig);
-      if (!m) {
-        const dc = this.klass(ref.owner);
-        m = this.findMethod(dc, sig) || this.findInterfaceMethod(dc, sig);
-      }
-      ref.lk = cls.desc; ref.lm = m || null;
+    // Cache miss: resolve once, then memoise the *receiver class object* so
+    // the hot path above is an identity check.
+    let m = this.resolveVirtual(cls, sig);
+    if (!m) m = this.findInterfaceMethod(cls, sig);
+    if (!m) {
+      const dc = this.klass(ref.owner);
+      m = this.findMethod(dc, sig) || this.findInterfaceMethod(dc, sig);
     }
+    ref.lk = recv.$c; ref.lm = m || null;
     if (!m) return this._missingN(kind, key, A, n, off);
+    this.stats.calls++;
     return this.callMethodN(m, A, n, off);
   }
 
@@ -629,7 +684,27 @@ export class Runtime {
       st.length = 0;
       throw this.newException('Ljava/lang/StackOverflowError;', 'stack depth exceeded');
     }
-    try { return this._dispatchN(m, A, n, off); }
+    const f = m.fn || m.nativeFn;
+    if (f) {                                      // inlined hot path: no extra JS frame
+      let out;
+      switch (n) {
+        case 0: out = f(); break;
+        case 1: out = f(A[off]); break;
+        case 2: out = f(A[off], A[off + 1]); break;
+        case 3: out = f(A[off], A[off + 1], A[off + 2]); break;
+        case 4: out = f(A[off], A[off + 1], A[off + 2], A[off + 3]); break;
+        case 5: out = f(A[off], A[off + 1], A[off + 2], A[off + 3], A[off + 4]); break;
+        case 6: out = f(A[off], A[off + 1], A[off + 2], A[off + 3], A[off + 4], A[off + 5]); break;
+        default: {
+          const args = new Array(n);
+          for (let i = 0; i < n; i++) args[i] = A[off + i];
+          out = f.apply(null, args);
+        }
+      }
+      st.pop();
+      return this.refNull(out, m.retType);
+    }
+    try { return this._dispatchSlowFrame(m, A, n, off); }
     catch (e) {
       // Stamp the Java-level stack onto the first error that escapes, so the
       // deepest frames survive the JS unwinding.
@@ -639,7 +714,14 @@ export class Runtime {
     finally { st.pop(); }
   }
 
-  /** Fast path: call compiled/native bodies without materialising an array. */
+  /** Slow path: stubs, natives and not-yet-JIT-compiled dex bodies. */
+  _dispatchSlowFrame(m, A, n, off) {
+    const args = new Array(n);
+    for (let i = 0; i < n; i++) args[i] = A[off + i];
+    return this._dispatchSlow(m, args);
+  }
+
+  /** Kept for compatibility with any external callers of the old helper. */
   _dispatchN(m, A, n, off) {
     const f = m.fn || m.nativeFn;
     if (f) {
