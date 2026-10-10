@@ -1,0 +1,18 @@
+import { readFileSync } from 'node:fs';
+import { installDom, El } from './domstub.js';
+const { document } = installDom();
+const { Host } = await import('../js/host.js');
+const host = new Host();
+const screen = new El('div'); document.body.appendChild(screen);
+await host.loadApk(readFileSync('test/com.santiagorodriguez.countaway_10.apk'), 'x.apk', () => {});
+host.renderer.screen = screen;
+const of = host.finish.bind(host);
+host.finish = (a) => { console.log('FINISH', host.R.classNameOf(a), 'stack:', (host.R._callStack || []).slice(-6).join(' <- ')); return of(a); };
+await host.boot();
+await new Promise((r) => setTimeout(r, 150));
+const find = (el, pred) => { if (pred(el)) return el; for (const c of el.childNodes) { const f = find(c, pred); if (f) return f; } return null; };
+const btn = find(screen, (e) => e._text && /Add countdown/i.test(e._text));
+if (btn) btn.dispatch('click');
+await new Promise((r) => setTimeout(r, 300));
+console.log('stack now:', host.activities.map((a) => host.R.classNameOf(a)));
+host.halt();

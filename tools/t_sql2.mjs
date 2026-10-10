@@ -1,0 +1,16 @@
+globalThis.__SQLDBG = true;
+import { installDom } from './domstub.js';
+installDom();
+const { Runtime } = await import('../js/runtime.js');
+const R = new Runtime({ log() {} });
+const H = { log: (...a) => console.log('  H:', ...a), vfs: new Map(), packageName: 't', crash: (e) => console.log('  crash', e) };
+const M = await import('../js/sqlite.js');
+const api = M.installSqlite(R, H);
+const db = api.openDb('t1');
+api.exec(db, 'CREATE TABLE t (a INTEGER, b TEXT)', []);
+api.exec(db, 'INSERT INTO t (a,b) VALUES (?,?)', [1, 'x']);
+api.exec(db, 'INSERT INTO t (a,b) VALUES (?,?)', [2, 'y']);
+const c = api.exec(db, 'SELECT a,b FROM t WHERE a = ?', [2]);
+console.log('rows:', JSON.stringify(c.$rows), 'cols', JSON.stringify(c.$cols));
+const c2 = api.exec(db, "SELECT a,b FROM t WHERE b = 'x' ORDER BY a", []);
+console.log('rows2:', JSON.stringify(c2.$rows));

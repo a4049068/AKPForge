@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dex2Web — transpile Android APKs to browser-native JavaScript</title>
+<meta name="description" content="Drop an APK. Dex2Web parses the ZIP container, decodes resources.arsc and binary AndroidManifest.xml, disassembles Dalvik bytecode and transpiles it to JavaScript that runs in a live Android view system — entirely in your browser.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1119'/%3E%3Cpath d='M9 8h7a8 8 0 0 1 0 16H9z' fill='none' stroke='%236ee7b7' stroke-width='2.6'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="#111722" stroke="#1f2836"/>
+        <path d="M9 8h7a8 8 0 0 1 0 16H9z" fill="none" stroke="#6ee7b7" stroke-width="2.4"/>
+        <path d="M20.5 11.5l4 4.5-4 4.5" fill="none" stroke="#7dd3fc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Dex<span class="b2">2</span>Web</span>
+    </div>
+    <span class="pill" id="enginePill">engine <b>idle</b></span>
+    <div class="spacer"></div>
+    <span class="pill" id="statPill" hidden></span>
+    <button class="btn ghost sm" id="loadAnother" hidden>Load another APK</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero" id="hero">
+    <div class="eyebrow"><span class="dot"></span> Dalvik&nbsp;→&nbsp;JavaScript transpiler · runs 100% client-side</div>
+    <h1>Drop an APK.<br><span class="grad">Watch it run in your browser.</span></h1>
+    <p class="sub">
+      Dex2Web unzips the package, decodes <code>resources.arsc</code> and the binary
+      <code>AndroidManifest.xml</code>, disassembles every DEX method, and transpiles Dalvik
+      bytecode into real JavaScript that executes against a browser-native Android runtime —
+      views, layouts, resources, lifecycle and all.
+    </p>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose an APK file">
+      <div class="apk-icon">
+        <svg width="46" height="46" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <rect x="9" y="6" width="30" height="36" rx="5" fill="#161d2b" stroke="#2b3648" stroke-width="1.6"/>
+          <circle cx="18" cy="17" r="2.4" fill="#6ee7b7"/><circle cx="30" cy="17" r="2.4" fill="#6ee7b7"/>
+          <path d="M14 24h20v9a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4z" fill="#1f2836"/>
+          <path d="M12 9L7 4M36 9l5-5" stroke="#7dd3fc" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M20 30h8" stroke="#6ee7b7" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="big">Drop an <span class="mono">.apk</span> here</div>
+      <div class="small">or click to browse — parsed locally, nothing is uploaded</div>
+      <input type="file" id="file" accept=".apk,application/vnd.android.package-archive" hidden>
+    </div>
+
+    <div class="samples" id="samples"></div>
+    <div class="privacy">
+      🔒 <b>Offline by design.</b> Your APK never leaves this tab — no upload, no server, no telemetry.
+      Everything below is computed by JavaScript in your browser.
+    </div>
+
+    <div class="features">
+      <div class="feature"><h3><span class="ic">◆</span> Real DEX parser</h3><p>Header, string/type/proto/field/method ID tables, class_data, code_items, encoded values, try tables and the debug_info state machine.</p></div>
+      <div class="feature"><h3><span class="ic">◆</span> 224 opcodes</h3><p>Complete Dalvik instruction set decoded across all 20 encoding formats, including packed/sparse switch and fill-array-data payloads.</p></div>
+      <div class="feature"><h3><span class="ic">◆</span> Faithful codegen</h3><p>Registers become locals, control flow becomes a basic-block trampoline, and Java try/catch falls straight out of JS exceptions.</p></div>
+      <div class="feature"><h3><span class="ic">◆</span> Android runtime</h3><p>~1,500 shimmed java.* / android.* / androidx.* members: Activity lifecycle, resource resolution, layout inflation, widgets, logcat.</p></div>
+      <div class="feature"><h3><span class="ic">◆</span> Binary XML &amp; ARSC</h3><p>AXML and the compiled resource table are decoded from scratch, so string, colour, dimension, drawable and layout resources all resolve.</p></div>
+      <div class="feature"><h3><span class="ic">◆</span> Zero dependencies</h3><p>No bundler, no CDN, no npm. The ZIP reader uses <span class="mono">DecompressionStream</span> with a hand-written DEFLATE fallback.</p></div>
+    </div>
+  </section>
+
+  <!-- ================= PIPELINE ================= -->
+  <section class="pipeline hidden" id="pipeline">
+    <h2 class="pipe-title">Transpilation pipeline</h2>
+    <div class="stages" id="stages"></div>
+  </section>
+
+  <div class="err-banner" id="errBanner"></div>
+
+  <!-- ================= WORKBENCH ================= -->
+  <section class="workbench" id="workbench">
+    <div class="wb-head">
+      <div class="app-id">
+        <img id="appIcon" alt="" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
+        <div>
+          <div class="nm" id="appName">—</div>
+          <div class="pk" id="appPkg">—</div>
+        </div>
+      </div>
+      <div class="spacer"></div>
+      <div class="chips" id="appChips"></div>
+      <button class="btn sm" id="runBtn">▶ Run app</button>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab on" data-p="overview">Overview</button>
+      <button class="tab" data-p="manifest">Manifest</button>
+      <button class="tab" data-p="resources">Resources <span class="cnt" id="cntRes">0</span></button>
+      <button class="tab" data-p="code">Classes &amp; code <span class="cnt" id="cntCls">0</span></button>
+      <button class="tab" data-p="report">Transpile report</button>
+      <button class="tab" data-p="run">Run</button>
+      <button class="tab" data-p="archive">Archive <span class="cnt" id="cntZip">0</span></button>
+    </nav>
+
+    <div class="panels">
+
+      <!-- OVERVIEW -->
+      <div class="panel on" id="p-overview">
+        <div class="grid3" id="ovStats"></div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="card"><h4>Package</h4><dl class="kv" id="ovPkg"></dl></div>
+          <div class="card"><h4>DEX containers</h4><div id="ovDex"></div></div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="card"><h4>Components</h4><div id="ovComponents"></div></div>
+          <div class="card"><h4>Requested permissions</h4><div id="ovPerms"></div></div>
+        </div>
+        <div class="card" style="margin-top:14px"><h4>Native code &amp; assets</h4><div id="ovNative"></div></div>
+      </div>
+
+      <!-- MANIFEST -->
+      <div class="panel" id="p-manifest">
+        <div class="toolbar">
+          <span class="lbl mono muted small">AndroidManifest.xml — decoded from binary AXML</span>
+          <div class="spacer"></div>
+          <button class="btn ghost sm" data-dl="manifest">Download .xml</button>
+        </div>
+        <pre class="code" id="manifestCode"></pre>
+      </div>
+
+      <!-- RESOURCES -->
+      <div class="panel" id="p-resources">
+        <div class="toolbar">
+          <div class="res-tabs" id="resTabs"></div>
+          <div class="spacer"></div>
+          <input class="search" id="resSearch" placeholder="filter by name or value…">
+        </div>
+        <div class="scrollbox"><table class="tbl" id="resTable"></table></div>
+      </div>
+
+      <!-- CODE -->
+      <div class="panel" id="p-code">
+        <div class="toolbar">
+          <input class="search" id="clsSearch" placeholder="filter classes… (e.g. MainActivity, androidx.lifecycle)">
+          <select class="sel" id="clsScope">
+            <option value="all">all classes</option>
+            <option value="app">app package only</option>
+            <option value="withcode">with bytecode</option>
+          </select>
+          <span class="pill" id="clsCount">0</span>
+        </div>
+        <div class="split">
+          <div>
+            <div class="list" id="clsList"></div>
+          </div>
+          <div>
+            <div class="list mlist" id="mList" style="max-height:170px"></div>
+            <div id="codePanels" style="margin-top:12px">
+              <div class="hintbox">Select a class on the left, then a method. You'll see the original <b>Dalvik bytecode</b> next to the <b>JavaScript that Dex2Web generated</b> from it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div class="panel" id="p-report">
+        <div class="grid3" id="repStats"></div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="card"><h4>Opcode coverage</h4><div id="repOpcodes"></div></div>
+          <div class="card"><h4>Unresolved framework calls</h4><div id="repUnresolved"></div></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h4>Generated bundle</h4>
+          <p class="small muted" style="margin-top:0">
+            Method bodies are transpiled lazily — the first time the VM resolves a call, its JavaScript is
+            generated and cached. Use <b>AOT</b> to eagerly transpile every method in the package and download
+            one self-contained bundle.
+          </p>
+          <div class="toolbar" style="margin-bottom:0">
+            <button class="btn sm" id="aotBtn">Transpile everything (AOT)</button>
+            <button class="btn ghost sm" id="dlBundle" disabled>Download bundle.js</button>
+            <div class="spacer"></div>
+            <span class="pill" id="aotProgress" hidden></span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px"><h4>Transpiler warnings</h4><div id="repWarnings" class="mono small"></div></div>
+      </div>
+
+      <!-- RUN -->
+      <div class="panel" id="p-run">
+        <div class="run-grid">
+          <div>
+            <div class="phone">
+              <div class="phone-screen">
+                <div class="notch"></div>
+                <div class="statusbar">
+                  <span id="sbTime">--:--</span>
+                  <span class="right">
+                    <span id="sbTitle" style="opacity:.75;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+                    <svg width="13" height="10" viewBox="0 0 16 12" fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4" y="5" width="3" height="7" rx="1"/><rect x="8" y="2.5" width="3" height="9.5" rx="1"/><rect x="12" y="0" width="3" height="12" rx="1" opacity=".35"/></svg>
+                    <svg width="20" height="10" viewBox="0 0 26 12" fill="none"><rect x=".7" y=".7" width="21" height="10.6" rx="2.6" stroke="currentColor" stroke-opacity=".5"/><rect x="2.4" y="2.4" width="15" height="7.2" rx="1.4" fill="currentColor"/><path d="M23.4 4.2v3.6a2 2 0 0 0 0-3.6z" fill="currentColor" fill-opacity=".5"/></svg>
+                  </span>
+                </div>
+                <div class="titlebar" id="titleBar"></div>
+                <div id="screen">
+                  <div class="idle-screen">
+                    <div class="em">▢</div>
+                    <div>Nothing running yet.<br>Press <b>Run app</b> to boot the launcher activity.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="runbar" style="justify-content:center;margin-top:12px">
+              <button class="btn sm" id="btnRun">▶ Run</button>
+              <button class="btn ghost sm" id="btnRestart">↻ Restart</button>
+              <button class="btn ghost sm" id="btnBack">← Back</button>
+              <button class="btn ghost sm" id="btnHome">■ Home</button>
+            </div>
+          </div>
+          <div>
+            <div class="toolbar">
+              <span class="lbl mono muted small">logcat</span>
+              <select class="sel" id="logLevel">
+                <option value="V">Verbose</option><option value="D">Debug</option>
+                <option value="I" selected>Info</option><option value="W">Warn</option><option value="E">Error</option>
+              </select>
+              <input class="search" id="logFilter" placeholder="filter…" style="max-width:170px">
+              <div class="spacer"></div>
+              <span class="pill" id="logCount">0 lines</span>
+              <button class="btn ghost sm" id="btnClearLog">Clear</button>
+            </div>
+            <div class="console" id="logcat"></div>
+            <div class="jconsole">
+              <input id="jcmd" placeholder='call Java: MainActivity->onBackPressed()V   ·   R.gs("Lfoo/Bar;->x:I")   ·   help' spellcheck="false">
+              <button class="btn sm" id="jrun">Run</button>
+            </div>
+            <div class="hintbox" style="margin-top:11px">
+              <b>How this works.</b> The transpiled app really is executing: clicks, text changes and lifecycle
+              callbacks all travel through generated JavaScript into the Android shim, which paints into the DOM.
+              <ul>
+                <li><code>help</code> — list console commands</li>
+                <li><code>launch com.foo.Bar</code> — start any activity in the manifest</li>
+                <li><code>call Lcom/foo/Bar;-&gt;baz(I)V 42</code> — invoke a method on the live activity</li>
+                <li><code>classes matching &lt;text&gt;</code> / <code>stats</code> — inspect the VM</li>
+                <li>screen sanity: <span class="mono">python3 tools/screencheck.py</span> (pixels) or <span class="mono">node tools/screencheck.mjs</span> (structure)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ARCHIVE -->
+      <div class="panel" id="p-archive">
+        <div class="toolbar">
+          <input class="search" id="zipSearch" placeholder="filter entries…">
+          <div class="spacer"></div>
+          <span class="pill" id="zipInfo">—</span>
+        </div>
+        <div class="scrollbox"><table class="tbl" id="zipTable"></table></div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cap">
+      <div>
+        <h5>What runs</h5>
+        <ul>
+          <li>Pure-Java / Kotlin apps whose UI is built from <b>XML layouts</b> or widget code</li>
+          <li>Activities, fragments, dialogs, toasts, menus, preferences, notifications</li>
+          <li>Resources: strings, plurals, colours, dimensions, PNG/WebP <b>and vector drawables</b> (compiled to SVG)</li>
+          <li>Exception handling, interfaces, enums, generics erasure, inner classes, lambdas</li>
+          <li>Kotlin stdlib, androidx and Material — whatever is bundled in the DEX</li>
+        </ul>
+      </div>
+      <div>
+        <h5>What doesn't (yet)</h5>
+        <ul>
+          <li><b>Native code</b> — <span class="mono">.so</span> libraries would need a WASM/x86 translator; JNI stubs return defaults</li>
+          <li><b>Jetpack Compose</b> — its composition/slot-table runtime is a second UI toolkit; XML-view apps render, Compose apps boot but paint nothing</li>
+          <li><b>64-bit longs</b> are held as JS numbers (exact below 2<sup>53</sup>); bitwise &amp; multiply ops use BigInt</li>
+          <li>Real OpenGL ES, camera, sensors, telephony, multi-window IME</li>
+          <li>Custom <span class="mono">onDraw()</span> views get a 2D-canvas draw pass; hardware-accelerated-only effects are approximated</li>
+          <li>Multi-process apps, Binder IPC, content providers backed by a real DB</li>
+          <li>APK signature verification and DRM / integrity attestation</li>
+        </ul>
+      </div>
+      <div>
+        <h5>How the transpiler works</h5>
+        <ul>
+          <li>Registers <span class="mono">v0…vN</span> → JS locals; the register file is <em>not</em> modelled as an array, so V8 optimises it</li>
+          <li>Basic blocks → <span class="mono">case</span> labels in a <span class="mono">for(;;) switch(bb)</span> trampoline, so arbitrary gotos and loops are legal</li>
+          <li>DEX try/handler tables → a <span class="mono">catch</span> that resolves the handler block by code address, with real Java stack traces</li>
+          <li>Dalvik's "0 is a null reference" convention is modelled explicitly in every reference operation</li>
+          <li>Method bodies compile on first invocation (a small JIT); AOT export emits one bundle</li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>Dex2Web — a Dalvik→JavaScript transpiler and Android runtime for the browser.</span>
+      <div class="spacer"></div>
+      <span class="mono small" id="footStats"></span>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
