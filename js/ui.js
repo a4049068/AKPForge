@@ -73,6 +73,17 @@ function gravityVertText(g) {
 }
 
 /* ================================================================== */
+/* Build a MotionEvent object for MotionEvent.obtain(actionIndex-or-pointerId, …)
+ * so synthetic events dispatched by app code (e.g. ScaleGestureDetector tests,
+ * double-tap emulation) carry a usable pointer table instead of zeros. */
+function mkSynthetic(R, idOrIndex, x, y) {
+  const id = Math.max(0, (idOrIndex | 0) & 0xff);
+  const pts = [];
+  for (let i = 0; i < id; i++) pts.push({ id: i, x: 0, y: 0 });
+  pts.push({ id, x: Number(x) || 0, y: Number(y) || 0 });
+  return { $c: R.klass('Landroid/view/MotionEvent;'), $action: id << 8, $pointerIndex: id, $x: pts[id].x, $y: pts[id].y, $pointers: pts };
+}
+
 export function installWidgets(R, H) {
   const D = H.renderer;   // the DOM renderer
 
@@ -314,23 +325,55 @@ export function installWidgets(R, H) {
     access: 0x31, sup: 'Landroid/view/InputEvent;',
     m: {
       'getX()F': (s) => Math.fround(s.$x || 0), 'getY()F': (s) => Math.fround(s.$y || 0),
-      'getX(I)F': (s) => Math.fround(s.$x || 0), 'getY(I)F': (s) => Math.fround(s.$y || 0),
       'getRawX()F': (s) => Math.fround(s.$rx || s.$x || 0), 'getRawY()F': (s) => Math.fround(s.$ry || s.$y || 0),
+      // Per-pointer raw coords: pointer array holds view-relative x/y; add the
+      // offset ($ox/$oy = rect.left/top scaled) stored by mk() to get screen coords.
+      'getRawX(I)F': (s, i) => { const j = s.$pointers && s.$pointers[i | 0]; return j ? Math.fround(j.x + (s.$ox || 0)) : Math.fround(s.$rx || s.$x || 0); },
+      'getRawY(I)F': (s, i) => { const j = s.$pointers && s.$pointers[i | 0]; return j ? Math.fround(j.y + (s.$oy || 0)) : Math.fround(s.$ry || s.$y || 0); },
       'getAction()I': (s) => s.$action | 0, 'getActionMasked()I': (s) => (s.$action | 0) & 0xff,
+      // Android packs the *pointer id* into bits 8-15 of the action int for
+      // ACTION_POINTER_DOWN/UP; the index is found by looking up that id in the
+      // current pointer list — not just returning the packed value.
+      'getActionIndex()I': (s) => {
+        const id = ((s.$action | 0) >> 8) & 0xff;
+        if (!s.$pointers) return 0;
+        const idx = s.$pointers.findIndex((p) => p.id === id);
+        return idx < 0 ? 0 : idx;
+      },
       'getPointerCount()I': (s) => (s.$pointers ? s.$pointers.length : 1),
+      'findPointerIndex(I)I': (s, id) => {
+        if (!s.$pointers) return (id | 0) === 0 ? 0 : -1;
+        return s.$pointers.findIndex((p) => p.id === (id | 0));
+      },
       'getPointerId(I)I': (s, i) => (s.$pointers && s.$pointers[i | 0] ? s.$pointers[i | 0].id : i | 0),
-      'getPointerIndex(I)I': (s, id) => (s.$pointers ? s.$pointers.findIndex((p) => p.id === (id | 0)) : 0),
-      'getX(I)F': (s, i) => Math.fround(s.$pointers && s.$pointers[i | 0] ? s.$pointers[i | 0].x : (s.$x || 0)),
-      'getY(I)F': (s, i) => Math.fround(s.$pointers && s.$pointers[i | 0] ? s.$pointers[i | 0].y : (s.$y || 0)),
-      'getActionIndex()I': (s) => ((s.$action | 0) >> 8) & 0xff,
+      // Per-pointer coordinates. Android's getX(int)/getY(int) throw
+      // IndexOutOfBoundsException for out-of-range indices — including the -1
+      // returned by findPointerIndex when a pointer has already lifted, which is
+      // how real apps guard post-up reads. Mirror that instead of silently
+      // returning stale values from the primary pointer.
+      'getX(I)F': (s, i) => {
+        const j = s.$pointers && s.$pointers[i | 0];
+        if (j) return Math.fround(j.x);
+        if (!(i >= 0 && i < (s.$pointers ? s.$pointers.length : 1))) throw R.newException('Ljava/lang/IndexOutOfBoundsException;', 'pointer index ' + (i | 0));
+        return Math.fround(s.$x || 0);
+      },
+      'getY(I)F': (s, i) => {
+        const j = s.$pointers && s.$pointers[i | 0];
+        if (j) return Math.fround(j.y);
+        if (!(i >= 0 && i < (s.$pointers ? s.$pointers.length : 1))) throw R.newException('Ljava/lang/IndexOutOfBoundsException;', 'pointer index ' + (i | 0));
+        return Math.fround(s.$y || 0);
+      },
       'getEventTime()J': () => Date.now(), 'getDownTime()J': () => Date.now(),
       'getHistorySize()I': () => 0, 'getMetaState()I': () => 0,
       'getPressure()F': () => Math.fround(1), 'getSize()F': () => Math.fround(1),
       'recycle()V': () => {}, 'getDevice()Landroid/view/InputDevice;': () => null,
     },
     sm: {
-      'obtain(JJIFFFFIFFI)Landroid/view/MotionEvent;': () => ({ $c: R.klass('Landroid/view/MotionEvent;'), $action: 0, $x: 0, $y: 0 }),
-      'obtain(JJIFFFFIFFILandroid/view/MotionEvent;)Landroid/view/MotionEvent;': () => ({ $c: R.klass('Landroid/view/MotionEvent;'), $action: 0, $x: 0, $y: 0 }),
+      // obtain(action, actionIndex|pointerId, downTime, eventTime, x[, y], metaState, ...)
+      // Build a minimal pointer table so the indexed getters work on synthetic
+      // events too (previously they returned hardcoded zeros).
+      'obtain(JJIFFFFIFFI)Landroid/view/MotionEvent;': (a0, a1, a2, a3, x, y) => mkSynthetic(R, a1, x, y),
+      'obtain(JJIFFFFIFFILandroid/view/MotionEvent;)Landroid/view/MotionEvent;': (a0, a1, a2, a3, x, y) => mkSynthetic(R, a1, x, y),
       'obtain(Landroid/view/MotionEvent;)Landroid/view/MotionEvent;': (e) => e,
       'obtainNoHistory(Landroid/view/MotionEvent;)Landroid/view/MotionEvent;': (e) => e,
     },
@@ -375,8 +418,70 @@ export function installWidgets(R, H) {
   R.def('Landroid/view/GestureDetector$OnGestureListener;', { access: 0x601, sup: 'Ljava/lang/Object;' });
   R.def('Landroid/view/GestureDetector$SimpleOnGestureListener;', { access: 0x21, sup: 'Ljava/lang/Object;', ifaces: ['Landroid/view/GestureDetector$OnGestureListener;', 'Landroid/view/GestureDetector$OnDoubleTapListener;'], m: { '<init>()V': () => {}, 'onDown(Landroid/view/MotionEvent;)Z': () => 1, 'onSingleTapUp(Landroid/view/MotionEvent;)Z': () => 0, 'onSingleTapConfirmed(Landroid/view/MotionEvent;)Z': () => 0, 'onDoubleTap(Landroid/view/MotionEvent;)Z': () => 0, 'onDoubleTapEvent(Landroid/view/MotionEvent;)Z': () => 0, 'onLongPress(Landroid/view/MotionEvent;)V': () => {}, 'onFling(Landroid/view/MotionEvent;Landroid/view/MotionEvent;FF)Z': () => 0, 'onScroll(Landroid/view/MotionEvent;Landroid/view/MotionEvent;FF)Z': () => 0, 'onShowPress(Landroid/view/MotionEvent;)V': () => {} } });
   R.def('Landroid/view/GestureDetector$OnDoubleTapListener;', { access: 0x601, sup: 'Ljava/lang/Object;' });
-  R.def('Landroid/view/ScaleGestureDetector;', { access: 0x21, sup: 'Ljava/lang/Object;', m: { '<init>(Landroid/content/Context;Landroid/view/ScaleGestureDetector$OnScaleGestureListener;)V': () => {}, 'onTouchEvent(Landroid/view/MotionEvent;)Z': () => 1, 'getScaleFactor()F': () => Math.fround(1) } });
+  R.def('Landroid/view/ScaleGestureDetector;', {
+    access: 0x21, sup: 'Ljava/lang/Object;',
+    m: {
+      '<init>(Landroid/content/Context;Landroid/view/ScaleGestureDetector$OnScaleGestureListener;)V': (s, c, l) => { s.$l = l; },
+      '<init>(Landroid/content/Context;Landroid/view/ScaleGestureDetector$OnScaleGestureListener;Landroid/os/Handler;)V': (s, c, l) => { s.$l = l; },
+      // Real two-finger pinch detection: track both pointers across the event
+      // sequence and report scale = currentSpan / previousSpan. Previously this
+      // was a no-op stub that always returned scaleFactor 1, so any app using
+      // it (map/photo/image zoom) silently did nothing on pinch.
+      'onTouchEvent(Landroid/view/MotionEvent;)Z': (s, e) => {
+        if (!s.$l) return 0;
+        const a = (e.$action | 0) & 0xff;
+        const px = (i) => Math.fround(e.$pointers && e.$pointers[i] ? e.$pointers[i].x : (e.$x || 0));
+        const py = (i) => Math.fround(e.$pointers && e.$pointers[i] ? e.$pointers[i].y : (e.$y || 0));
+        const span = () => {
+          if (!e.$pointers || e.$pointers.length < 2) return 0;
+          const dx = px(0) - px(1), dy = py(0) - py(1);
+          return Math.sqrt(dx * dx + dy * dy);
+        };
+        const focusX = () => (e.$pointers && e.$pointers.length >= 2 ? (px(0) + px(1)) / 2 : (e.$x || 0));
+        const focusY = () => (e.$pointers && e.$pointers.length >= 2 ? (py(0) + py(1)) / 2 : (e.$y || 0));
+        try {
+          if (a === 5 /* ACTION_POINTER_DOWN */) {
+            s.$prevSpan = span();
+            s.$beginSpan = s.$prevSpan;
+            s.$active = s.$prevSpan > 0 ? 1 : 0;
+            s.$startX = focusX(); s.$startY = focusY();
+            if (s.$active) R.iv('Landroid/view/ScaleGestureDetector$OnScaleGestureListener;->onScaleBegin(Landroid/view/ScaleGestureDetector;)Z', s.$l, s);
+            return s.$active;
+          }
+          if (a === 2 /* ACTION_MOVE */ && s.$active) {
+            const cur = span();
+            if (cur > 0 && s.$prevSpan > 0) {
+              s.$scaleFactor = Math.fround(cur / s.$prevSpan);
+              s.$scaleFactorAccum = Math.fround((s.$scaleFactorAccum || 1) * s.$scaleFactor);
+              s.$span = Math.fround(cur);
+              s.$prevSpan = cur;
+              s.$focusX = Math.fround(focusX()); s.$focusY = Math.fround(focusY());
+              R.iv('Landroid/view/ScaleGestureDetector$OnScaleGestureListener;->onScale(Landroid/view/ScaleGestureDetector;)Z', s.$l, s);
+            }
+            return 1;
+          }
+          if ((a === 1 || a === 6 || a === 3) && s.$active) {
+            s.$active = 0;
+            s.$span = Math.fround(span() || (s.$span || 0));
+            R.iv('Landroid/view/ScaleGestureDetector$OnScaleGestureListener;->onScaleEnd(Landroid/view/ScaleGestureDetector;)V', s.$l, s);
+            s.$scaleFactorAccum = 1;
+            return 1;
+          }
+        } catch (err) { /* listener may not implement these callbacks */ }
+        return 0;
+      },
+      'getScaleFactor()F': (s) => Math.fround(s.$scaleFactor || 1),
+      'getPreviousSpan()F': (s) => Math.fround(s.$prevSpan || 0),
+      'getCurrentSpan()F': (s) => Math.fround(s.$span || s.$prevSpan || 0),
+      'getFocusX()F': (s) => Math.fround(s.$focusX || 0),
+      'getFocusY()F': (s) => Math.fround(s.$focusY || 0),
+      'getTimeDelta()J': () => 16n,
+      'isInProgress()Z': (s) => (s.$active ? 1 : 0),
+      'getScaleFactorAccumulated()F': (s) => Math.fround(s.$scaleFactorAccum || 1),
+    },
+  });
   R.def('Landroid/view/ScaleGestureDetector$OnScaleGestureListener;', { access: 0x601, sup: 'Ljava/lang/Object;' });
+  R.def('Landroid/view/ScaleGestureDetector$SimpleOnScaleGestureListener;', { access: 0x21, sup: 'Ljava/lang/Object;', ifaces: ['Landroid/view/ScaleGestureDetector$OnScaleGestureListener;'], m: { '<init>()V': () => {}, 'onScale(Landroid/view/ScaleGestureDetector;)Z': () => 0, 'onScaleBegin(Landroid/view/ScaleGestureDetector;)Z': () => 1, 'onScaleEnd(Landroid/view/ScaleGestureDetector;)V': () => {} } });
   R.def('Landroid/view/VelocityTracker;', { access: 0x31, sup: 'Ljava/lang/Object;', sm: { 'obtain()Landroid/view/VelocityTracker;': () => ({ $c: R.klass('Landroid/view/VelocityTracker;') }) }, m: { 'addMovement(Landroid/view/MotionEvent;)V': () => {}, 'computeCurrentVelocity(I)V': () => {}, 'getXVelocity()F': () => Math.fround(0), 'getYVelocity()F': () => Math.fround(0), 'recycle()V': () => {} } });
   R.def('Landroid/view/ViewConfiguration;', { access: 0x21, sup: 'Ljava/lang/Object;', sm: { 'get(Landroid/content/Context;)Landroid/view/ViewConfiguration;': () => ({ $c: R.klass('Landroid/view/ViewConfiguration;') }) }, m: { 'getScaledTouchSlop()I': () => 8, 'getScaledMinimumFlingVelocity()I': () => 50, 'getScaledMaximumFlingVelocity()I': () => 8000 } });
   R.def('Landroid/view/ViewGroup$OnHierarchyChangeListener;', { access: 0x601, sup: 'Ljava/lang/Object;' });
@@ -1170,13 +1275,28 @@ export class Renderer {
     const mk = (action, ev, pointerId = 0) => {
       const r = e.getBoundingClientRect();
       const c = this.R.klass('Landroid/view/MotionEvent;');
+      // Android's pointer list for an ACTION_UP / ACTION_POINTER_UP event does
+      // NOT contain the lifting pointer — its coords live only in the primary
+      // $x/$y. Mirror that so getPointerCount()/getX(i) behave like the framework.
+      const lifting = (action === 1 || action === 6) && pointerId >= 0;
       const pts = [];
-      for (const [id, p] of pointers) pts.push({ id, x: (p.clientX - r.left) / this.scale, y: (p.clientY - r.top) / this.scale });
+      for (const [id, p] of pointers) {
+        if (lifting && id === pointerId) continue;
+        pts.push({ id, x: (p.clientX - r.left) / this.scale, y: (p.clientY - r.top) / this.scale });
+      }
       if (!pts.some((p) => p.id === pointerId)) pts.push({ id: pointerId, x: (ev.clientX - r.left) / this.scale, y: (ev.clientY - r.top) / this.scale });
+      // Stable pointer ids → contiguous indices, exactly like Android's pointer table.
+      pts.sort((a, b) => a.id - b.id);
+      // On *_UP the lifted pointer is absent from the table; keep its last known
+      // position addressable through the no-arg getters ($x/$y), as Android does.
+      let primary = pts.find((p) => p.id === pointerId);
+      if (!primary) primary = { id: pointerId, x: (ev.clientX - r.left) / this.scale, y: (ev.clientY - r.top) / this.scale };
+      const ox = r.left / this.scale, oy = r.top / this.scale;
       const me = {
         $c: c, $action: action | (pointerId << 8), $pointerIndex: 0,
-        $x: (ev.clientX - r.left) / this.scale, $y: (ev.clientY - r.top) / this.scale,
-        $rx: ev.clientX / this.scale, $ry: ev.clientY / this.scale,
+        $x: primary.x, $y: primary.y,
+        $rx: primary.x + ox, $ry: primary.y + oy,
+        $ox: ox, $oy: oy,
         $pointers: pts,
       };
       return me;
@@ -1189,33 +1309,72 @@ export class Renderer {
       if (v.$bgDrawable && v.$bgDrawable.$selector) this.applyDrawableBg(v);
       if (v.$drawable && v.$drawable.$selector) this.applyImageSrc(v);
     };
-    const send = (action, ev) => {
+    const send = (action, ev, pointerId = 0) => {
       if (!v.$onTouch) return false;
-      try { return !!this.R.iv('Landroid/view/View$OnTouchListener;->onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z', v.$onTouch, v, mk(action, ev)); }
+      try { return !!this.R.iv('Landroid/view/View$OnTouchListener;->onTouch(Landroid/view/View;Landroid/view/MotionEvent;)Z', v.$onTouch, v, mk(action, ev, pointerId)); }
       catch (err) { this.host.crash(err); return false; }
     };
-    const pt = (ev) => (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]) || ev;
+    // The event object whose coords describe *this* action: for touch events the
+    // changedTouches entry (the pointer that went down/moved/up), not touches[0].
+    // Taking touches[0] made every secondary finger report the primary's position,
+    // so pinch/scale gestures saw a degenerate second point.
+    const pt = (ev, pointerId) => {
+      const ct = ev.changedTouches;
+      if (ct && ct.length) {
+        for (const t of ct) if (t.identifier === pointerId) return t;
+        return ct[0];
+      }
+      return ev;
+    };
     e.addEventListener('pointerdown', (ev) => {
       pointers.set(ev.pointerId, ev);
-      down = pt(ev);
+      down = ev;
       setPressed(true);
-      send(pointers.size > 1 ? 5 : 0, pt(ev), ev.pointerId);   // ACTION_POINTER_DOWN : ACTION_DOWN
+      send(pointers.size > 1 ? 5 : 0, ev, ev.pointerId);   // ACTION_POINTER_DOWN : ACTION_DOWN
     });
     e.addEventListener('pointermove', (ev) => {
       if (pointers.has(ev.pointerId)) pointers.set(ev.pointerId, ev);
-      if (down) { send(2, pt(ev), ev.pointerId); if (ev.cancelable) ev.preventDefault(); }
+      if (down) { send(2, ev, ev.pointerId); if (ev.cancelable) ev.preventDefault(); }
     });
     const up = (ev) => {
       const multi = pointers.size > 1;
       pointers.delete(ev.pointerId);
-      if (down) { send(multi ? 6 : 1, pt(ev), ev.pointerId); down = pointers.size ? down : null; }
+      if (down) { send(multi ? 6 : 1, ev, ev.pointerId); down = pointers.size ? down : null; }
       if (!pointers.size) { down = null; setPressed(false); }
     };
     e.addEventListener('pointerup', up);
-    e.addEventListener('pointercancel', (ev) => { pointers.delete(ev.pointerId); if (down) { send(3, pt(ev), ev.pointerId); down = null; setPressed(false); } });
-    e.addEventListener('touchstart', (ev) => { if (ev.touches[0]) send(0, ev.touches[0]); }, { passive: true });
-    e.addEventListener('touchmove', (ev) => { if (ev.touches[0]) send(2, ev.touches[0]); }, { passive: true });
-    e.addEventListener('touchend', (ev) => { if (ev.changedTouches[0]) send(1, ev.changedTouches[0]); }, { passive: true });
+    e.addEventListener('pointercancel', (ev) => { pointers.delete(ev.pointerId); if (down) { send(3, ev, ev.pointerId); down = null; setPressed(false); } });
+    // Legacy touch listeners only fire when no Pointer Events fired for this
+    // gesture (browsers dispatch both families; double delivery would feed the
+    // app duplicate DOWN/UP pairs). They also bypass bindTouch's pointer table,
+    // so synthesise one from the TouchEvent itself.
+    const hasPointerEv = () => typeof window !== 'undefined' && !!window.PointerEvent;
+    const tid = (t) => (t && typeof t.identifier === 'number' ? t.identifier : 0);
+    e.addEventListener('touchstart', (ev) => {
+      if (hasPointerEv()) return;
+      const t = (ev.changedTouches && ev.changedTouches[0]) || ev.touches[0];
+      if (!t) return;
+      for (const tt of ev.touches) pointers.set(tid(tt), tt);
+      down = t;
+      setPressed(true);
+      send(pointers.size > 1 ? 5 : 0, t, tid(t));
+    }, { passive: true });
+    e.addEventListener('touchmove', (ev) => {
+      if (hasPointerEv()) return;
+      const t = (ev.changedTouches && ev.changedTouches[0]) || ev.touches[0];
+      if (!t || !down) return;
+      for (const tt of ev.touches) pointers.set(tid(tt), tt);
+      send(2, t, tid(t));
+    }, { passive: true });
+    e.addEventListener('touchend', (ev) => {
+      if (hasPointerEv()) return;
+      const t = ev.changedTouches && ev.changedTouches[0];
+      if (!t || !down) return;
+      const multi = pointers.size > 1;
+      pointers.delete(tid(t));
+      send(multi ? 6 : 1, t, tid(t));
+      if (!pointers.size) { down = null; setPressed(false); } else down = ev.touches[0] || down;
+    }, { passive: true });
   }
   fireClick(v) {
     if (!v || !v.$onClick) return;
