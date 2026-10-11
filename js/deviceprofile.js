@@ -5,21 +5,30 @@
  * fields, system properties (ro.product.* / ro.build.*), DisplayMetrics density
  * & dpi, TelephonyManager (IMEI/MSISDN/carrier/network type), BatteryManager
  * plus sticky BATTERY_CHANGED broadcasts that actually reach registerReceiver'ed
- * receivers, ConnectivityManager, a stable per-install ANDROID_ID and a real
- * Chrome-on-Android User-Agent for WebView. Streaming apps probe exactly these
- * surfaces when deciding whether they are on a "real phone", so we answer like
- * a Pixel 7 (or a Galaxy S23) instead of a browser.
+ * receivers, ConnectivityManager (NetworkInfo + API-26 NetworkCapabilities),
+ * PackageManager (PackageInfo/ApplicationInfo/Signature), WifiManager/WifiInfo,
+ * a full Location stack (LocationManager/LocationProvider/Location with a
+ * browser-geolocation bridge), PowerManager+WakeLock, UsageStatsManager,
+ * ActivityManager memory stats, StatFs storage sizes, a stable per-install
+ * ANDROID_ID across Settings.Secure/System/Global and a real Chrome-on-Android
+ * User-Agent for WebView. Streaming apps probe exactly these surfaces when
+ * deciding whether they are on a "real phone", so we answer like a Pixel 7 (or
+ * a Galaxy S23) instead of a browser.
  *
  * The module never edits framework sources at load time; it patches each Host
  * after installFramework() has run and wraps Runtime.def so classes defined
  * later (e.g. the DEX's own android.os.Build stubs) still receive the fake
- * values. With the setting OFF nothing here executes and behaviour is unchanged.
+ * values. It also wraps Transpiler.getMethodFn so dex-declared methods that the
+ * APK compiles lazily (Build.VERSION.SDK_INT readers, custom Build fields…)
+ * resolve to the spoofed values instead of the DEX's placeholder bodies.
+ * With the setting OFF nothing here executes and behaviour is unchanged.
  */
 
 import { ARR_CLASS } from './runtime.js';
 
 const S = 'Ljava/lang/String;';
-const Z = 'Z', I = 'I', J = 'J', V = 'V';
+const O = 'Ljava/lang/Object;';
+const Z = 'Z', I = 'I', J = 'J', F = 'F', D = 'D', V = 'V';
 const BOOL = (b) => (b ? 1 : 0);
 
 export const SETTINGS_PKG = 'dex2web.settings';
