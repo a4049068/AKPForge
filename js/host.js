@@ -14,6 +14,7 @@ function decodeInsnAt(dex, code, pc) { try { return decodeInsn(code.code, pc, de
 import { Transpiler } from './transpile.js';
 import { Runtime, ARR_CLASS } from './runtime.js';
 import { installFramework } from './framework.js';
+import { applyDeviceProfile, isEnabled as spoofEnabled, PROFILES, DEFAULT_PROFILE } from './deviceprofile.js';
 import { Renderer, installWidgets, unpackDimension, dimToPx, svgUri, MATCH_PARENT, WRAP_CONTENT, VISIBLE, INVISIBLE, GONE } from './ui.js';
 import { installSqlite } from './sqlite.js';
 
