@@ -255,7 +255,7 @@ export class Runtime {
     c.fieldOrder = null;
     this._vresolve.clear();
     this._assign.clear();
-    this._boxCache.clear();
+    _boxCache.clear();          // module-level cache (boxed-class memo)
   }
   ifaces(c) {
     if (c.interfaceClasses && c.interfaceClasses.length === (c.interfaces || []).length && c._ifacesResolved) return c.interfaceClasses;
