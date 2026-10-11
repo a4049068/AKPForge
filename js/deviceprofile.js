@@ -57,6 +57,22 @@ export const PROFILES = {
     batteryLevel: 78, batteryVoltage: 4021, batteryTemp: 275, batteryStatus: 3, batteryHealth: 2,
     batteryTechnology: 'Li-ion', batteryPlugged: 0, batteryPresent: true, chargeTimeFull: 25200000,
     uaProduct: 'Pixel 7',
+    /* enterprise-emulator extras (Genymotion / Android Studio managed AVDs) */
+    ramBytes: 8 * 1024 * 1024 * 1024, cores: 8, gpu: 'Adreno (TM) 663', opengles: 32,
+    dataTotal: 128e9, dataFree: 96e9, sysTotal: 4.5e9, extTotal: 128e9, extFree: 96e9,
+    mac: '5E:22:B3:E9:1F:A7', ipInt: 0x0A01A8C0, gatewayInt: 0x0A01A8C0, netMask: 0xFFFFFF00,
+    dns1: '8.8.8.8', dns2: '8.8.4.4', wifiSsid: '"HomeNet-5G"', wifiBssid: '5E:22:B3:E9:1F:A7',
+    sensors: [
+      ['LSensor;->ACCELEROMETER:I', 'LSensor;->TYPE_ACCELEROMETER:I', 'lsm6dso Accelerometer Non-wakeup', 'STMicro', 3.7e-4, 20.0, 0.0039, 6],
+      ['LSensor;->GYROSCOPE:I', 'LSensor;->TYPE_GYROSCOPE:I', 'lsm6dso Gyroscope Non-wakeup', 'STMicro', 1.7e-4, 2000.0 / 9.81, 0.0, 6],
+      ['LSensor;->MAGNETOMETER:I', 'LSensor;->TYPE_MAGNETIC_FIELD:I', 'ak09918 Magnetometer Non-wakeup', 'akm', 0.15, 2000.0, 1.2, 10],
+      ['LSensor;->LIGHT:I', 'LSensor;->TYPE_LIGHT:I', 'stk33af Proximity Sensor Wakeup', 'sensortek', 1.0, 65535.0, 0.0, 1],
+      ['LSensor;->PROXIMITY:I', 'LSensor;->TYPE_PROXIMITY:I', 'stk33af Proximity Sensor Wakeup', 'sensortek', 5.0, 5.0, 0.0, 0],
+      ['LSensor;->PRESSURE:I', 'LSensor;->TYPE_PRESSURE:I', 'lsm6dso Pressure Sensor Non-wakeup', 'STMicro', 0.06, 1250.0, 0.0, 2],
+      ['LSensor;->GRAVITY:I', 'LSensor;->TYPE_GRAVITY:I', 'Gravity Non-wakeup', 'Google', 0.0, 9.81, 0.0, 9],
+      ['LSensor;->LINEAR_ACCELERATION:I', 'LSensor;->TYPE_LINEAR_ACCELERATION:I', 'Linear Accelerometer Non-wakeup', 'Google', 0.0, 20.0, 0.0, 9],
+      ['LSensor;->ROTATION_VECTOR:I', 'LSensor;->TYPE_ROTATION_VECTOR:I', 'Rotation Vector Non-wakeup', 'Google', 0.003, 1.0, 0.0, 9],
+    ],
   },
   s23: {
     label: 'Samsung Galaxy S23 (Android 13, One UI 5.1)',
@@ -76,6 +92,22 @@ export const PROFILES = {
     batteryLevel: 64, batteryVoltage: 4100, batteryTemp: 268, batteryStatus: 3, batteryHealth: 2,
     batteryTechnology: 'Li-ion', batteryPlugged: 0, batteryPresent: true, chargeTimeFull: 32400000,
     uaProduct: 'SM-S911B',
+    /* enterprise-emulator extras (Genymotion / Android Studio managed AVDs) */
+    ramBytes: 8 * 1024 * 1024 * 1024, cores: 8, gpu: 'Xclipse 920', opengles: 32,
+    dataTotal: 128e9, dataFree: 92e9, sysTotal: 4.5e9, extTotal: 128e9, extFree: 92e9,
+    mac: '5E:22:B3:E9:1F:A7', ipInt: 0x0A01A8C0, gatewayInt: 0x0A01A8C0, netMask: 0xFFFFFF00,
+    dns1: '8.8.8.8', dns2: '8.8.4.4', wifiSsid: '"HomeNet-5G"', wifiBssid: '5E:22:B3:E9:1F:A7',
+    sensors: [
+      ['LSensor;->ACCELEROMETER:I', 'LSensor;->TYPE_ACCELEROMETER:I', 'MMC19xx Accelerometer Non-wakeup', 'MEMSIC', 5.9e-4, 39.24, 0.0059, 6],
+      ['LSensor;->GYROSCOPE:I', 'LSensor;->TYPE_GYROSCOPE:I', 'BMI160 Gyroscope Non-wakeup', 'Bosch', 6.1e-4, 2000.0 / 9.81, 0.0, 6],
+      ['LSensor;->MAGNETOMETER:I', 'LSensor;->TYPE_MAGNETIC_FIELD:I', 'MMC397X Magnetometer Non-wakeup', 'MEMSIC', 0.15, 1200.0, 1.0, 10],
+      ['LSensor;->LIGHT:I', 'LSensor;->TYPE_LIGHT:I', 'SHTW3 Light Sensor Non-wakeup', 'sec', 1.0, 65535.0, 0.0, 1],
+      ['LSensor;->PROXIMITY:I', 'LSensor;->TYPE_PROXIMITY:I', 'SHTW3 Proximity Sensor Wakeup', 'sec', 5.0, 5.0, 0.0, 0],
+      ['LSensor;->PRESSURE:I', 'LSensor;->TYPE_PRESSURE:I', 'LPS22HH Pressure Sensor Non-wakeup', 'STMicro', 0.06, 1250.0, 0.0, 2],
+      ['LSensor;->GRAVITY:I', 'LSensor;->TYPE_GRAVITY:I', 'Gravity Non-wakeup', 'Samsung', 0.0, 9.81, 0.0, 9],
+      ['LSensor;->LINEAR_ACCELERATION:I', 'LSensor;->TYPE_LINEAR_ACCELERATION:I', 'Linear Accelerometer Non-wakeup', 'Samsung', 0.0, 39.24, 0.0, 9],
+      ['LSensor;->ROTATION_VECTOR:I', 'LSensor;->TYPE_ROTATION_VECTOR:I', 'Rotation Vector Non-wakeup', 'Samsung', 0.003, 1.0, 0.0, 9],
+    ],
   },
 };
 export const DEFAULT_PROFILE = 'pixel7';
@@ -374,6 +406,8 @@ export function applyDeviceProfile(host, profile) {
   R.def('Landroid/webkit/WebSettings;', { access: 0x21, sup: 'Ljava/lang/Object;', m: WEB_METHODS });
 
   /* ---- mirror the choice into the app-visible SharedPreferences store --------- */
+  enterpriseEmuPatch(R, H, P, jarr, mkIntent);
+
   try {
     const sp = H.prefs(SETTINGS_PKG);
     if (sp && sp.$m) {
@@ -385,6 +419,345 @@ export function applyDeviceProfile(host, profile) {
 
   H.log('I', 'DeviceProfile', `Experimental spoof ON → ${P.label} · API ${P.sdk} · ${P.width}×${P.height}@${P.densityDpi}dpi · android_id ${P.androidId}`);
   return P;
+}
+
+/* ---- enterprise-emulator feature layer -------------------------------------
+ * Genymotion / Android-Studio "managed" AVDs pass Play-Integrity & Widevine L1
+ * by answering every hardware probe with realistic device data. This patch
+ * reproduces that surface on top of the spoofed profile: full SensorManager
+ * enumeration (Sensor instances + SensorDirectChannel + dynamic-sensor check),
+ * ActivityManager.MemoryInfo sized to the virtual RAM, UsageStatsManager and
+ * StorageStatsManager queries, WifiManager/WifiInfo (SSID/BSSID/RSSI/link
+ * speed/MacAddress — including the API-23 int-address form), LinkProperties +
+ * NetworkInterface (real-looking wlan0 with our MAC), DNS via InetAddress,
+ * GLES version strings for GLSurfaceView-based DRM/CDM probes, a non-empty
+ * getSystemAvailableFeatures() list and always-granted permissions.
+ */
+function enterpriseEmuPatch(R, H, P, jarr, mkIntent) {
+  const F_ = F;
+
+  /* -- sensors: real names/vendors/ranges/maxLatency/power ------------------ */
+  const SENSOR_STATICS = {};
+  const sensorDefs = [];
+  const addS = (k, v) => { SENSOR_STATICS['Landroid/hardware/Sensor;->' + k + ':I'] = v; };
+  addS('TYPE_ACCELEROMETER', 1); addS('TYPE_GYROSCOPE', 4); addS('TYPE_MAGNETIC_FIELD', 2);
+  addS('TYPE_LIGHT', 5); addS('TYPE_PROXIMITY', 8); addS('TYPE_PRESSURE', 6);
+  addS('TYPE_GRAVITY', 9); addS('TYPE_LINEAR_ACCELERATION', 10); addS('TYPE_ROTATION_VECTOR', 11);
+  addS('TYPE_RELATIVE_HUMIDITY', 12); addS('TYPE_AMBIENT_TEMPERATURE', 13);
+  addS('TYPE_STEP_COUNTER', 19); addS('TYPE_STEP_DETECTOR', 18);
+  addS('TYPE_HEART_RATE', 21); addS('TYPE_LOW_POWER_FLOOR', 27);
+  addS('ACCELEROMETER', 1); addS('GYROSCOPE', 4); addS('MAGNETOMETER', 2);
+  addS('LIGHT', 5); addS('PROXIMITY', 8); addS('PRESSURE', 6);
+  addS('GRAVITY', 9); addS('LINEAR_ACCELERATION', 10); addS('ROTATION_VECTOR', 11);
+  addS('MAXIMUM_RANGE', 0); addS('MINIMUM_DELAY', -1); addS('MAXIMUM_LATENCY', 2);
+  addS('REPORTING_MODE_CONTINUOUS', 0); addS('REPORTING_MODE_ON_CHANGE', 1);
+  addS('REPORTING_MODE_ONE_SHOT', 2); addS('REPORTING_MODE_SPECIAL_TRIGGER', 3);
+  addS('SENSOR_STATUS_ACCURACY_LOW', 1); addS('SENSOR_STATUS_ACCURACY_MEDIUM', 2);
+  addS('SENSOR_STATUS_ACCURACY_HIGH', 3); addS('SENSOR_STATUS_UNRELIABLE', 0);
+  const SM_LIST_STATICS = {
+    'Landroid/hardware/SensorManager;->SENSOR_DELAY_FASTEST:I': 0,
+    'Landroid/hardware/SensorManager;->SENSOR_DELAY_GAME:I': 1,
+    'Landroid/hardware/SensorManager;->SENSOR_DELAY_UI:I': 2,
+    'Landroid/hardware/SensorManager;->SENSOR_DELAY_NORMAL:I': 3,
+    'Landroid/hardware/SensorManager;->REMODELING_REQUIRED:I': 0,
+    'Landroid/hardware/SensorManager;->REMOLDELED:I': 1,
+    'Landroid/hardware/SensorManager;->CREATE_BUFFERED_SENSOR_DIRECT_CHANNEL:I': 0x11,
+    'Landroid/hardware/SensorManager;->REPORTING_MODE_CONTINUOUS:I': 0,
+  };
+  for (const s of P.sensors || []) {
+    const key = 'Landroid/hardware/Sensor;->' + s[0] + ':I';
+    const type = SENSOR_STATICS[key];
+    if (type === undefined) continue;
+    sensorDefs.push({ type, name: s[2], vendor: s[3], resolution: s[4], maxRange: s[5], power: s[6], maxDelay: s[7] });
+  }
+  const findSensor = (t) => sensorDefs.find((d) => d.type === (t | 0)) || null;
+  const sensorCls = R.def('Landroid/hardware/Sensor;', { access: 0x21, sup: 'Ljava/lang/Object;' });
+  const mkSensor = (d) => {
+    const c = sensorCls; R.initClass(c);
+    const o = R.newInstanceObj(c);
+    o.$type = d.type; o.$name = d.name; o.$vendor = d.vendor;
+    o.$resolution = d.resolution; o.$maxRange = d.maxRange; o.$power = d.power; o.$maxDelay = d.maxDelay;
+    return o;
+  };
+  mergeMethods(sensorCls, {
+    ['getName()' + S]: (s) => s.$name || 'sensor',
+    ['getVendor()' + S]: (s) => s.$vendor || 'Android',
+    ['getType()' + I]: (s) => s.$type | 0,
+    ['getResolution()' + F_]: (s) => Math.fround(s.$resolution != null ? s.$resolution : 0.001),
+    ['getMaximumRange()' + F_]: (s) => Math.fround(s.$maxRange != null ? s.$maxRange : 100),
+    ['getPower()' + F_]: (s) => Math.fround(s.$power != null ? s.$power : 0.1),
+    ['getMinDelay()' + I]: (s) => 1000,
+    ['getMaxDelay()' + I]: (s) => (s.$maxDelay != null ? s.$maxDelay * 1000000 : 0),
+    ['isWakeUpSensor()' + Z]: (s) => BOOL(/Wakeup/i.test(String(s.$name || ''))),
+    ['isDynamicSensor()' + Z]: () => 0,
+    ['getReportingMode()' + I]: (s) => (s.$type === 1 || s.$type === 8 ? 1 : 0),
+    ['getHighestDirectReportRateLevel()' + I]: () => 3,
+    ['getId()' + I]: (s) => s.$type | 0,
+  });
+  assignIfEmpty(sensorCls.statics, SENSOR_STATICS);
+
+  mergeMethods(R.klass('Landroid/hardware/SensorManager;'), {
+    ['getDefaultSensor(I)Landroid/hardware/Sensor;']: (s, t) => { const d = findSensor(t); return d ? mkSensor(d) : null; },
+    ['getDefaultSensor(II)Landroid/hardware/Sensor;']: (s, t) => { const d = findSensor(t); return d ? mkSensor(d) : null; },
+    ['getSensorList(I)Ljava/util/List;']: (s, t) => {
+      const list = (t === -1 ? sensorDefs : sensorDefs.filter((d) => d.type === (t | 0))).map(mkSensor);
+      return { $c: R.klass('Ljava/util/ArrayList;'), $a: list };
+    },
+    ['getSensorTypes()' + ARR_CLASS + I]: () => { const a = Array.from(new Set(sensorDefs.map((d) => d.type))); a[ARR_CLASS] = R.klass('[I'); return a; },
+    ['registerListener(Landroid/hardware/SensorEventListener;Landroid/hardware/Sensor;I)' + Z]: (s, l, sen) => { try { H.registerSensor && H.registerSensor(l, sen && sen.$type, 3); } catch { /* ignore */ } return 1; },
+    ['registerListener(Landroid/hardware/SensorEventListener;Landroid/hardware/Sensor;II)' + Z]: (s, l, sen) => { try { H.registerSensor && H.registerSensor(l, sen && sen.$type, 3); } catch { /* ignore */ } return 1; },
+    ['unregisterListener(Landroid/hardware/SensorEventListener;)' + V]: (s, l) => { try { H.unregisterSensor && H.unregisterSensor(l); } catch { /* ignore */ } },
+    ['unregisterListener(Landroid/hardware/SensorEventListener;Landroid/hardware/Sensor;)' + V]: (s, l) => { try { H.unregisterSensor && H.unregisterSensor(l); } catch { /* ignore */ } },
+  });
+  assignIfEmpty(R.klass('Landroid/hardware/SensorManager;').statics, SM_LIST_STATICS);
+
+  /* -- ActivityManager memory sized like the virtual device ------------------ */
+  const amPatch = {
+    ['getMemoryInfo(Landroid/app/ActivityManager$MemoryInfo;)' + V]: (s, o) => {
+      if (!o) return;
+      const K = 'Landroid/app/ActivityManager$MemoryInfo;->';
+      o[K + 'totalMem:J'] = BigInt(P.ramBytes);
+      o[K + 'availMem:J'] = BigInt(Math.floor(P.ramBytes * 0.62));
+      o[K + 'threshold:J'] = BigInt(192 * 1024 * 1024);
+      o[K + 'lowMemory:Z'] = 0;
+    },
+    ['isLowRamDevice()' + Z]: () => 0,
+    ['getMemoryClass()' + I]: () => 512,
+    ['getLargeMemoryClass()' + I]: () => 1024,
+    ['getRunningAppProcesses()Ljava/util/List;']: () => {
+      const pc = R.klass('Landroid/app/ActivityManager$RunningAppProcessInfo;'); R.initClass(pc);
+      const me = R.newInstanceObj(pc);
+      me['Landroid/app/ActivityManager$RunningAppProcessInfo;->processName:Ljava/lang/String;'] = H.packageId || 'com.android.shell';
+      me['Landroid/app/ActivityManager$RunningAppProcessInfo;->pid:I'] = 12345;
+      me['Landroid/app/ActivityManager$RunningAppProcessInfo;->uid:I'] = 10199;
+      me['Landroid/app/ActivityManager$RunningAppProcessInfo;->importance:I'] = 100;
+      return { $c: R.klass('Ljava/util/ArrayList;'), $a: [me] };
+    },
+  };
+  mergeMethods(R.klass('Landroid/app/ActivityManager;'), amPatch);
+  R.def('Landroid/app/ActivityManager$RunningAppProcessInfo;', { access: 0x21, sup: 'Ljava/lang/Object;', fields: [['processName', S], ['pid', I], ['uid', I], ['importance', I]] });
+
+  /* -- UsageStatsManager: pretend the app has been used normally ------------- */
+  R.def('Landroid/app/usage/UsageStatsManager;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+    ['queryUsageStats(IIIJ)Ljava/util/List;']: () => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: [] }),
+    ['queryEvents(JJ)Landroid/app/usage/UsageEvents;']: () => {
+      const c = R.klass('Landroid/app/usage/UsageEvents;'); R.initClass(c);
+      return R.newInstanceObj(c);
+    },
+    ['queryDailyUsageStats(Ljava/lang/String;J)Ljava/util/List;']: () => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: [] }),
+    ['subscribeUsageEvents(Landroid/content/IntentFilter;Landroid/app/PendingIntent;)' + V]: () => {},
+    ['queryConfigForComponent(IIILjava/lang/String;)Landroid/media/MediaFormat;']: () => null,
+  } });
+  R.def('Landroid/app/usage/UsageEvents;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+    ['getSize()' + I]: () => 0, ['hasNextEvent()' + Z]: () => 0,
+    ['getNextEvent()Landroid/app/usage/UsageEvents$Event;']: () => null,
+    ['getEvent(I)Landroid/app/usage/UsageEvents$Event;']: () => null,
+  } });
+
+  /* -- StorageStatsManager: report the emulated userdata partition ----------- */
+  R.def('Landroid/app/usage/StorageStatsManager;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+    ['queryForPackage(Ljava/lang/String;Landroid/content/Context;J)' + J]: () => BigInt(64 * 1024 * 1024),
+    ['queryTotalBytes(Landroid/storage/StorageVolume;)' + J]: () => BigInt(P.dataTotal),
+    ['queryFreeBytes(Landroid/storage/StorageVolume;)' + J]: () => BigInt(P.dataFree),
+  } });
+
+  /* -- WifiManager / WifiInfo: connected to a plausible home AP -------------- */
+  const ipToInt = (d) => ((d[3] << 24) | (d[2] << 16) | (d[1] << 8) | d[0]) >>> 0;
+  const wifiInfoPatch = {
+    ['getSSID()' + S]: () => P.wifiSsid,
+    ['getBSSID()' + S]: () => P.wifiBssid,
+    ['getMacAddress()' + S]: () => P.mac,
+    ['getIpAddress()' + I]: () => P.ipInt,
+    ['getRssi()' + I]: () => -47,
+    ['getLinkSpeed()' + I]: () => 866,
+    ['getFrequency()' + I]: () => 5180,
+    ['getNetworkId()' + I]: () => 1,
+    ['getSupplicantState()Landroid/net/wifi/SupplicantState;']: () => {
+      const c = R.klass('Landroid/net/wifi/SupplicantState;'); R.initClass(c);
+      const o = R.newInstanceObj(c); o.$name = 'COMPLETED'; return o;
+    },
+    ['getDetailedState()Landroid/net/NetworkInfo$DetailedState;']: () => {
+      const c = R.klass('Landroid/net/NetworkInfo$DetailedState;'); R.initClass(c);
+      const o = R.newInstanceObj(c); o.$name = 'CONNECTED'; return o;
+    },
+    ['getScanResults()Ljava/util/List;']: () => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: [] }),
+  };
+  const wifiC = R.def('Landroid/net/wifi/WifiInfo;', { access: 0x21, sup: 'Ljava/lang/Object;' });
+  mergeMethods(wifiC, wifiInfoPatch);
+  const wifiM = R.klass('Landroid/net/wifi/WifiManager;');
+  if (wifiM && wifiM.methods.size) {
+    mergeMethods(wifiM, {
+    ['getConnectionInfo()Landroid/net/wifi/WifiInfo;']: () => { const o = R.newInstanceObj(wifiC); return o; },
+    ['isWifiEnabled()' + Z]: () => 1,
+    ['setWifiEnabled(I)' + Z]: () => 1,
+    ['getScanResults()Ljava/util/List;']: () => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: [] }),
+    ['getConfiguredNetworks()Ljava/util/List;']: () => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: [] }),
+    ['startScan()' + Z]: () => 1,
+    ['addNetwork(Landroid/net/wifi/WifiConfiguration;)' + I]: () => 1,
+    ['enableNetwork(IZ)' + Z]: () => 1,
+    ['calculateSignalLevel(II)' + I]: (m, s, lv) => Math.max(0, Math.min(4, Math.round(((lv + 100) / 100) * 4))),
+    ['getDhcpInfo()Landroid/net/DhcpInfo;']: () => {
+      const c = R.klass('Landroid/net/DhcpInfo;'); R.initClass(c);
+      const o = R.newInstanceObj(c);
+      o['Landroid/net/DhcpInfo;->ipAddress:I'] = P.ipInt;
+      o['Landroid/net/DhcpInfo;->netmask:I'] = P.netMask;
+      o['Landroid/net/DhcpInfo;->gateway:I'] = P.gatewayInt;
+      o['Landroid/net/DhcpInfo;->dns1:I'] = ipToInt([8, 8, 8, 8]);
+      o['Landroid/net/DhcpInfo;->dns2:I'] = ipToInt([8, 8, 4, 4]);
+      o['Landroid/net/DhcpInfo;->serverAddress:I'] = P.gatewayInt;
+      o['Landroid/net/DhcpInfo;->leaseDuration:I'] = 3600;
+      return o;
+    },
+    });
+  } else if (wifiM) {
+    R.def('Landroid/net/wifi/WifiManager;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+      ['isWifiEnabled()' + Z]: () => 1,
+      ['getConnectionInfo()Landroid/net/wifi/WifiInfo;']: () => R.newInstanceObj(wifiC),
+    } });
+  }
+  R.def('Landroid/net/DhcpInfo;', { access: 0x21, sup: 'Ljava/lang/Object;', fields: [['ipAddress', I], ['netmask', I], ['gateway', I], ['dns1', I], ['dns2', I], ['serverAddress', I], ['leaseDuration', I]] });
+  R.def('Landroid/net/wifi/SupplicantState;', { access: 0x11, sup: 'Ljava/lang/Enum;', statics: { '$name': 'COMPLETED' } });
+
+  /* -- ConnectivityManager extras: LinkProperties + capabilities ------------- */
+  mergeMethods(R.klass('Landroid/net/ConnectivityManager;'), {
+    ['getLinkProperties(Landroid/net/Network;)Landroid/net/LinkProperties;']: () => {
+      const c = R.klass('Landroid/net/LinkProperties;'); R.initClass(c);
+      const o = R.newInstanceObj(c);
+      o.$iface = 'wlan0'; o.$dns = [P.dns1, P.dns2];
+      return o;
+    },
+    ['getNetworkCapabilities(Landroid/net/Network;)Landroid/net/NetworkCapabilities;']: () => {
+      const c = R.klass('Landroid/net/NetworkCapabilities;'); R.initClass(c);
+      const o = R.newInstanceObj(c); o.$transport = 1; o.$caps = [12, 16, 15, 27]; return o;
+    },
+  });
+  R.def('Landroid/net/LinkProperties;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+    ['getInterfaceName()' + S]: (s) => s.$iface || 'wlan0',
+    ['getDnsServers()Ljava/util/List;']: (s) => ({ $c: R.klass('Ljava/util/ArrayList;'), $a: (s.$dns || []).slice() }),
+    ['hasAddresses()' + Z]: () => 1,
+    ['isDown()' + Z]: () => 0,
+  } });
+  mergeMethods(R.klass('Landroid/net/NetworkCapabilities;'), {
+    ['hasCapability(I)' + Z]: (s, c) => BOOL(!s.$caps || s.$caps.includes(c | 0)),
+    ['hasTransport(I)' + Z]: (s, t) => BOOL((s.$transport | 0) === (t | 0)),
+    ['getTransport()' + I]: (s) => s.$transport | 0,
+  });
+
+  /* -- NetworkInterface: wlan0 with our MAC ---------------------------------- */
+  const inetAddr = (desc, host, addr) => {
+    const c = R.klass(desc); R.initClass(c);
+    const o = R.newInstanceObj(c); o.$host = host; o.$addr = addr; return o;
+  };
+  R.def('Ljava/net/NetworkInterface;', { access: 0x21, sup: 'Ljava/lang/Object;', sm: {
+    ['getNetworkInterfaces()Ljava/util/Enumeration;']: () => {
+      const ni = R.klass('Ljava/net/NetworkInterface;'); R.initClass(ni);
+      const mk = (nm) => { const o = R.newInstanceObj(ni); o.$name = nm; return o; };
+      const items = [mk('wlan0'), mk('lo')];
+      let i = 0;
+      return { $c: R.klass('Ljava/util/Enumeration;'), hasMoreElements: () => BOOL(i < items.length), nextElement: () => items[i++] };
+    },
+    ['getByName(Ljava/lang/String;)Ljava/net/NetworkInterface;']: (n) => {
+      const ni = R.klass('Ljava/net/NetworkInterface;'); R.initClass(ni);
+      const o = R.newInstanceObj(ni); o.$name = String(n) === '127.0.0.1' ? 'lo' : 'wlan0'; return o;
+    },
+  }, m: {
+    ['getName()' + S]: (s) => s.$name || 'wlan0',
+    ['getIndex()' + I]: (s) => (s.$name === 'lo' ? 1 : 2),
+    ['isUp()' + Z]: () => 1, ['isConnected()' + Z]: () => 1, ['isLoopback()' + Z]: (s) => BOOL(s.$name === 'lo'),
+    ['getHardwareAddress()[B']: (s) => (s.$name === 'lo' ? null : macBytes(R, P.mac)),
+    ['getInetAddresses()Ljava/util/Enumeration;']: () => {
+      let i = 0;
+      const items = [inetAddr('Ljava/net/InetAddress;', 'wlan0-ipv4', intToDotted(P.ipInt)), inetAddr('Ljava/net/InetAddress;', 'lo', '127.0.0.1')];
+      return { $c: R.klass('Ljava/util/Enumeration;'), hasMoreElements: () => BOOL(i < items.length), nextElement: () => items[i++] };
+    },
+  } });
+
+  /* -- DNS answers like a resolver on the emulated net ----------------------- */
+  R.def('Ljava/net/InetAddress;', { access: 0x21, sup: 'Ljava/lang/Object;', sm: {
+    ['getAllByName(Ljava/lang/String;)[Ljava/net/InetAddress;']: (h) => {
+      const arr = [inetAddr('Ljava/net/InetAddress;', String(h), '142.250.185.14')];
+      arr[ARR_CLASS] = R.klass('[Ljava/net/InetAddress;'); return arr;
+    },
+    ['getByName(Ljava/lang/String;)Ljava/net/InetAddress;']: (h) => inetAddr('Ljava/net/InetAddress;', String(h), '142.250.185.14'),
+    ['getLocalHost()Ljava/net/InetAddress;']: () => inetAddr('Ljava/net/InetAddress;', 'localhost', '127.0.0.1'),
+  }, m: {
+    ['getHostAddress()' + S]: (s) => s.$addr || '127.0.0.1',
+    ['getCanonicalHostName()' + S]: (s) => s.$host || 'localhost',
+    ['getHostName()' + S]: (s) => s.$host || 'localhost',
+    ['isReachable(I)' + Z]: () => 1,
+    ['isLoopbackAddress()' + Z]: (s) => BOOL(String(s.$addr || '').startsWith('127.')),
+  } });
+
+  /* -- GLES version strings (DRM/CDM & game-engine probes) ------------------- */
+  R.def('Landroid/opengl/GLES20;', { access: 0x11, sup: 'Ljava/lang/Object;' });
+  R.klass('Landroid/opengl/GLES20;').statics['Landroid/opengl/GLES20;->GL_VERSION:I'] = 0x1F02;
+  R.def('Landroid/media/MediaDrm;', { access: 0x21, sup: 'Ljava/lang/Object;', m: {
+    ['getPropertyByteArray(Ljava/lang/String;)[B']: () => null,
+    ['getPropertyString(Ljava/lang/String;)' + S]: (s, k) => (/security|version/i.test(String(k)) ? '3.5.0' : null),
+  } });
+
+  /* -- PackageManager: declare the features a real phone ships --------------- */
+  const FEATURES = [
+    'android.hardware.touchscreen', 'android.hardware.faketouch', 'android.hardware.screen.portrait',
+    'android.hardware.screen.landscape', 'android.hardware.wifi', 'android.hardware.wifi.aware',
+    'android.hardware.telephony', 'android.hardware.camera.any', 'android.hardware.camera.autofocus',
+    'android.hardware.location', 'android.hardware.location.gps', 'android.hardware.location.network',
+    'android.hardware.sensor.accelerometer', 'android.hardware.sensor.gyroscope', 'android.hardware.sensor.compass',
+    'android.hardware.sensor.light', 'android.hardware.sensor.proximity', 'android.hardware.sensor.barometer',
+    'android.hardware.fingerprint', 'android.hardware.biometrics.face', 'android.hardware.usb.host',
+    'android.hardware.audio.output', 'android.hardware.microphone', 'android.hardware.battery',
+    'android.software.activities_on_secondary_displays', 'android.software.backup',
+    'android.software.print', 'android.software.voice_interactions', 'android.software.webview',
+    'android.software.device_admin', 'android.software.managed_users', 'android.software.securely_removes_users',
+    'android.software.verified_boot', 'android.software.midi', 'android.software.leanback_not_supported',
+    'org.khronos.opengles_1_1', 'org.khronos.opengles_2_0', 'org.khronos.opengles_3_1', 'org.khronos.opengles_3_2',
+  ];
+  mergeMethods(R.klass('Landroid/content/pm/PackageManager;'), {
+    ['hasSystemFeature(Ljava/lang/String;)' + Z]: (s, f) => BOOL(FEATURES.includes(String(f))),
+    ['hasSystemFeature(Ljava/lang/String;I)' + Z]: (s, f) => BOOL(FEATURES.includes(String(f))),
+    ['getSystemAvailableFeatures()[Landroid/content/pm/FeatureInfo;']: () => {
+      const fc = R.klass('Landroid/content/pm/FeatureInfo;'); R.initClass(fc);
+      const arr = FEATURES.map((name) => { const o = R.newInstanceObj(fc); o['Landroid/content/pm/FeatureInfo;->name:Ljava/lang/String;'] = name; return o; });
+      arr[ARR_CLASS] = R.klass('[Landroid/content/pm/FeatureInfo;');
+      return arr;
+    },
+    ['checkPermission(Ljava/lang/String;Ljava/lang/String;)' + I]: () => 0, // PERMISSION_GRANTED
+    ['checkSelfPermission(Ljava/lang/String;)' + I]: () => 0,
+  });
+  mergeMethods(R.klass('Landroid/content/Context;'), {
+    ['checkSelfPermission(Ljava/lang/String;)' + I]: () => 0,
+    ['checkCallingOrSelfPermission(Ljava/lang/String;)' + I]: () => 0,
+  });
+
+  /* -- Settings.Global device identifiers ------------------------------------ */
+  const GLOB_SM = {
+    ['getString(Landroid/content/ContentResolver;Ljava/lang/String;)' + S]: (r, k) => {
+      const key = String(k);
+      if (key === 'android_id') return P.androidId;
+      if (key === 'device_name') return P.model;
+      return null;
+    },
+  };
+  mergeStaticMethods(R.klass('Landroid/provider/Settings$Global;'), GLOB_SM);
+  mergeStaticMethods(R.klass('Landroid/provider/Settings$System;'), GLOB_SM);
+
+  /* -- CPU: /proc-style core count & heap sizes (keep gc/exit/load from shim) */
+  mergeMethods(R.klass('Ljava/lang/Runtime;'), {
+    ['availableProcessors()' + I]: () => P.cores,
+    ['maxMemory()' + J]: () => BigInt(512 * 1024 * 1024),
+    ['totalMemory()' + J]: () => BigInt(128 * 1024 * 1024),
+    ['freeMemory()' + J]: () => BigInt(96 * 1024 * 1024),
+  });
+}
+
+/* helpers for the enterprise layer */
+function intToDotted(ip) {
+  return [(ip >>> 0) & 0xFF, (ip >>> 8) & 0xFF, (ip >>> 16) & 0xFF, (ip >>> 24) & 0xFF].join('.');
+}
+function macBytes(R, mac) {
+  const bytes = String(mac).split(':').map((h) => parseInt(h, 16) & 0xFF);
+  bytes[ARR_CLASS] = R.klass('[B');
+  return bytes;
 }
 
 /* is the setting currently engaged? (single source of truth for host + app) */
