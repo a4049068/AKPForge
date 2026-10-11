@@ -83,16 +83,27 @@ packages; `tools/uitest*.py` drive the actual site in headless Chromium and scre
 | dk.cocode.chess | 2,592 | 11,576 | ⚠️ application + activity + lifecycle + fragments run; UI is Jetpack Compose, engine is native `.so` |
 | com.octave.app (Octave, user-supplied) | 9,670 | 43,543 | ⚠️ application/activity/coroutines run; UI is Compose, media is native — see ROADMAP |
 
-## Honest limitations
+## Honest limitations — each one defined
 
-* **Native code** — `lib/*.so` would need an x86/ARM translator. JNI natives return
-  type-correct defaults and are logged in the transpile report.
-* **Jetpack Compose** UIs boot their activity but paint nothing: Compose is a second UI toolkit (composition + slot table + its own canvas) — XML-view apps render, Compose apps report a clean boundary warning via `screencheck`.
-* **Longs** are JS numbers (exact below 2⁵³); bitwise/mul/div/rem on longs go through BigInt.
-* No real OpenGL ES, camera, sensors, telephony, multi-process or Binder IPC.
-* Signature verification, DRM and Play Integrity are not attempted.
-* Framework themes ship as a contrast-aware approximation (the platform `resources.arsc`
-  is never inside an APK), plus a table of the common `android:TextAppearance*` sizes.
+Every limitation below is stated as a precise definition: what exactly fails, where the
+boundary sits in the code, what the observable behaviour is, and how severe it is.
+Severity scale: **blocking** (app cannot run), **degraded** (runs with visible gaps),
+**bounded** (works up to a defined limit), **cosmetic** (approximation only).
+
+| # | Limitation | Definition (what, where, behaviour) | Severity | Boundary / trigger |
+|---|---|---|---|---|
+| L1 | Native code (`.so`) | Any `native` method or `System.loadLibrary` target is not executed; JNI calls resolve to type-correct default stubs (`0`, `false`, `null`) — see the `stub: 'native'` marker in `runtime.js`'s class registry — and are listed in the *Transpile report*. Code whose logic lives in C/C++ (chess engines, codecs, games) computes nothing real. | blocking for native-driven apps | `runtime.js` native-method dispatch; `lib/**/*.so` entries ignored |
+| L2 | Jetpack Compose UIs | A Compose activity boots — `Application`, lifecycle, coroutines all run — but nothing paints: the composition/slot-table/canvas pipeline of `androidx.compose.*` is not implemented. `screencheck` reports this as an explained `WARN`, not a crash. | degraded (logic runs, screen blank) | `ui.js` has no compose runtime; detected by `screencheck.mjs` census |
+| L3 | `long` precision | Dalvik `long`s map to JS doubles: exact only for \|value\| < 2⁵³. Bitwise ops, `mul`, `div`, `rem` on longs route through BigInt (`runtime.lshL/shrL/ushrL/_wrap64`), so those operations are correct even above 2⁵³; plain add/sub/comparison above 2⁵³ silently lose low bits. | bounded (2⁵³ exact) | `runtime.js` header comment + `_bi()` helpers |
+| L4 | Execution budgets | The basic-block dispatcher counts steps per invocation (`VM.maxSteps = 2,000,000`) and globally (`VM.globalStepLimit = 120,000,000`). Exceeding either throws a catchable `VMError("basic-block budget exhausted")` instead of hanging the tab. Legitimately long-running loops are cut off at these limits. | bounded (fixed step caps) | `transpile.js` codegen guard; `runtime.js` fields |
+| L5 | Coroutines vs native blockers | `Handler`/executor-backed suspension works; a `suspend` function parked on a *native* blocker (see L1) returns `COROUTINE_SUSPENDED` into non-suspend callers and never resumes. | degraded | ROADMAP §A "Suspension-aware coroutines" |
+| L6 | Graphics APIs | No OpenGL ES: `GLSurfaceView` gets a 2D-canvas stand-in plus lifecycle callbacks only. GPU-shaded rendering, shaders and `EGLContext` semantics do not exist. | degraded for GL apps | ROADMAP §F; `ui.js` surface shim |
+| L7 | Device peripherals & clipboard read | Camera (`Camera`/`CameraX`), real video surfaces (`MediaPlayer` → SurfaceView), notifications, `DownloadManager`, and battery/telephony values are not bridged to browser APIs; affected features no-op or report unavailable. Clipboard **read** returns only the session's last in-app `clipboardWrite` value (`host.js` `_clip` cache) — `navigator.clipboard.readText()` is never called, so text copied outside the app is invisible. Sensors, geolocation, vibration, clipboard-write and audio *are* bridged. | degraded (per-feature) | ROADMAP §D unchecked items; `host.js clipboardRead()` |
+| L8 | Multi-process & IPC | One process model: no Binder, no AIDL, no `ContentProvider` cross-process calls, no `bindService` to another package. In-app providers are a stubbed subset. | blocking for multi-process APKs | ROADMAP §F |
+| L9 | Security features | APK signature verification, Play Integrity and DRM are deliberately not attempted — the host treats every dropped APK as untrusted input to transpile, never as verified software. | by design | ROADMAP §F |
+| L10 | Framework theme fidelity | The platform `resources.arsc` is never inside an APK, so framework themes are a contrast-aware approximation plus a table of standard `android:TextAppearance*` sizes; pixel-identical Material styling is not guaranteed. | cosmetic | `host.js` theme tables |
+| L11 | Touch input | `MotionEvent` exposes pointer APIs (`getPointerCount/Id/Index`, `getX(i)/getY(i)`, `ACTION_POINTER_DOWN` signalling in `ui.js`), but per-pointer **coordinates** collapse to the first touch: the gesture dispatcher's `pt(ev)` always picks `touches[0]`, so pinch/scale gestures see a degenerate second point at the primary location. | degraded (multi-touch events fire, coordinates wrong) | `ui.js` MotionEvent shim + gesture `pt()` helper; ROADMAP §A |
+| L12 | Partial widget semantics | `AppWidget/RemoteViews` actions parse but don't paint; `RecyclerView` decorators / `ItemTouchHelper` / nested scrolling, `ListView` choice modes, `EditText` input filters & IME actions beyond Enter, `ScrollView` smooth-scroll callbacks, elevation beyond box-shadow, `LoaderManager`, `WorkManager`, `DataStore` are unimplemented; affected widgets render statically or ignore the feature. | degraded (per-widget) | ROADMAP §B/§C/§E unchecked items |
 
 ## Tests
 
